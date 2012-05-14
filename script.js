@@ -86,7 +86,7 @@ function populate() {
 
 	var params = unparam(location.search)
 
-	var query = params.query || "sxsw",
+	var query = $("[name=query]").val() || "sxsw",
 		tweets = parseInt(params.tweets) || 30,
 		videos = parseInt(params.videos) || 30,
 		images = parseInt(params.images) || 30,
