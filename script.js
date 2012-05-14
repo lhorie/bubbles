@@ -80,7 +80,7 @@ function unparam(string) {
 }
 function populate() {
 	PARTICLES.forEach(function(particle) {
-		particle.material.decay = true
+		particle.material.state = "dead"
 	})
 	PARTICLES = []
 
@@ -107,7 +107,12 @@ function populate() {
 }
 function addParticles(data, draw, render) {
 	data.forEach(function(item) {
-		var particle = new THREE.Particle(new THREE.ParticleCanvasMaterial({color: Math.random() * 0x666666, program: genProgram(draw)}));
+		var material = new THREE.ParticleCanvasMaterial({
+			color: Math.random() * 0x666666,
+			program: genProgram(draw)
+		})
+		material.state = "live"
+		var particle = new THREE.Particle(material);
 		
 		particle.position.x = Math.random() * boxSize - (boxSize / 2);
 		particle.position.y = Math.random() * boxSize - (boxSize / 2);
@@ -135,7 +140,7 @@ function genProgram(draw) {
 	startDelay = endDelay = Math.round(Math.random() * 20) + 1
 	var i = 0
 	return function(context) {
-		if (!this.decay) {
+		if (this.state == "live") {
 			if (startDelay) startDelay--
 			else i = Math.min(1, i + 0.1)
 		}
