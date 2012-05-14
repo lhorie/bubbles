@@ -231,7 +231,7 @@ function initScene() {
 	var radius = 400, theta = 0;
 	new function animate() {
 		// rotate CAMERA
-		theta += 0.2;
+		theta += 0.6;
 
 		CAMERA.position.x = radius * Math.sin(theta * Math.PI / 360);
 		CAMERA.position.y = radius * Math.sin(theta * Math.PI / 360);
