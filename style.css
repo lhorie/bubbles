@@ -10,7 +10,7 @@ input {background:rgba(255,255,255,0.8);border:0;border-radius:10px;outline:none
 #bubbles {position:absolute;left:10px;top:10px;z-index:2;}
 #bubbles .bubble {border-radius:10px;margin:0 0 10px;padding:10px;position:static;}
 #bubbles .help {display:block}
-.bubble {background:rgba(255,255,255,0.6);border:1px solid #ccc;border-radius:1000px;left:-210px;max-height:200px;padding:20px 40px;position:absolute;text-overflow:ellipsis;width:200px;}
+.bubble {background:rgba(255,255,255,0.6);border:1px solid #ccc;border-radius:1000px;left:-300px;max-height:200px;padding:20px 40px;position:absolute;text-overflow:ellipsis;width:200px;}
 .bubble:before,.bubble:after {content:"";display:table;}
 .bubble:after {clear:both;}
 .bubble img {border:1px solid #ccc;float:left;height:48px;margin:0 5px 0 0;width:48px;}
