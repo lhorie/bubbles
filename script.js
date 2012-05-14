@@ -44,7 +44,7 @@ function poke(e) {
 	if (intersected) {
 		drift()
 		intersected.object.material.program = drawPoppedBubble;
-		BUBBLE = intersected.object.bubble
+		BUBBLE = intersected.object.bubble.clone(true)
 		BUBBLE.appendTo(document.body)
 			.css({
 				position: "absolute",
