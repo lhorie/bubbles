@@ -22,15 +22,15 @@ $.fn.bubble = function() {
 var BUBBLE
 function initSearchBubble() {
 	BUBBLE = $(".search").center().click(false)
-	BUBBLE.find("[type=text]").focus().keypress(function(e) {
-		if (e.keyCode == 13) {
-			drift()
-			
-			populate()
+	BUBBLE.find("[type=text]").focus()
+	BUBBLE.find("[type=submit]").click(function(e) {
+		e.preventDefault()
+		drift()
+		
+		populate()
 
-			document.addEventListener('click', poke, false);
-			document.addEventListener('keyup', drift, false);
-		}
+		$(document).die("click").bind("click", poke);
+		$(document).die("keyup").bind("keyup", drift);
 	})
 }
 

@@ -5,6 +5,8 @@ h1,h2,h3,h4,h5,h6 {color:#632b29;font-family:Niconne,Arial;}
 a {color:#632b29;}
 img {border:0;}
 input {background:rgba(255,255,255,0.8);border:0;border-radius:10px;outline:none;padding:2px 10px;text-align:center;}
+[type=text] {width:120px;}
+[type=submit] {background:rgba(255,255,255,0.6);border:1px solid #ccc;border-radius:40px;cursor:pointer;}
 #bubbles {position:absolute;left:10px;top:10px;z-index:2;}
 #bubbles .bubble {border-radius:10px;margin:0 0 10px;padding:10px;position:static;}
 #bubbles .help {display:block}
