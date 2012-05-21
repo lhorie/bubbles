@@ -6,9 +6,9 @@ $.fn.tpl = function(template, data) {
 	return this
 }
 $.fn.center = function() {
-	return this.css({position: "absolute"}).css({
-		top: Math.max(0, Math.round(($(window).height() - this.outerHeight(true)) / 2)),
-		left: Math.max(0, Math.round(($(window).width() - this.outerWidth(true)) / 2))
+	return this.css({
+		top: Math.max(0, Math.round((HEIGHT - this.outerHeight(true)) / 2)),
+		left: Math.max(0, Math.round((WIDTH - this.outerWidth(true)) / 2))
 	})
 }
 $.fn.bubble = function() {
@@ -19,81 +19,145 @@ $.fn.bubble = function() {
 	})
 }
 
-var BUBBLE
+var BUBBLE, PAGE = 1
+var TAP = "ontouchstart" in document.body ? "touchstart" : "click"
 function initSearchBubble() {
-	BUBBLE = $(".search").center().click(false)
-	BUBBLE.find("[type=text]").focus()
-	BUBBLE.find("[type=submit]").click(function(e) {
-		e.preventDefault()
-		drift()
-		
-		populate()
-
-		$(document).die("click").bind("click", poke);
-		$(document).die("keyup").bind("keyup", drift);
-	})
+	BUBBLE = $(".search").center()
+	var input = BUBBLE.find("[type=text]").focus()
+	var button = BUBBLE.find("[type=submit]").bind(TAP, submitForm)
+	var form = BUBBLE.find("form").submit(submitForm)
+}
+function submitForm(e) {
+	e.preventDefault()
+	$("[type=text]").blur()
+	drift()
+	populate(PAGE = 1)
 }
 
-var HEIGHT = $(window).height(), WIDTH = $(window).width()
-function poke(e) {
-	// find intersections
-	var x = (e.clientX / WIDTH) * 2 - 1;
-	var y = - (e.clientY / HEIGHT) * 2 + 1;
+var CAMERA, SCENE, PROJECTOR;
+var HEIGHT = 0, WIDTH = 0
+function initScene() {
+	var scrollbarWidth = (function() {
+		var dummy = $("<div style='height:80px;overflow:scroll;position:absolute;top:-200px;width:80px;'></div>").appendTo(document.body)
+		var width = dummy.prop("offsetWidth") - dummy.prop("clientWidth")
+		dummy.remove()
+		return width
+	})()
 	
-	var intersected = intersect(x, y)
+	CAMERA = new THREE.PerspectiveCamera(70, WIDTH / HEIGHT, 1, 10000);
+	CAMERA.position.set(0, 300, 500);
+
+	SCENE = new THREE.Scene();
+
+	SCENE.add(CAMERA);
+
+	PROJECTOR = new THREE.Projector();
+
+	var renderer = new THREE.CanvasRenderer();
+
+	$(document).bind("touchstart", function(e) {
+		if (e.target.nodeName.toLowerCase() != "input") e.preventDefault()
+	})
+	
+	$(window).resize(function() {
+		HEIGHT = $(window).height()
+		WIDTH = $(window).width() - scrollbarWidth
+		CAMERA.aspect = WIDTH / HEIGHT
+		CAMERA.updateProjectionMatrix()
+		renderer.setSize(WIDTH, HEIGHT)
+		$("body>.search").center()
+	}).resize()
+	
+	$(renderer.domElement)
+		.appendTo(document.body)
+		.bind(TAP, poke)
+		.bind("keyup", drift)
+	
+	var radius = 400, theta = 0;
+	new function animate() {
+		// rotate CAMERA
+		theta += 0.4;
+
+		CAMERA.position.x = radius * Math.sin(theta * Math.PI / 360);
+		CAMERA.position.y = radius * Math.sin(theta * Math.PI / 360);
+		CAMERA.position.z = radius * Math.cos(theta * Math.PI / 360);
+		CAMERA.lookAt(SCENE.position);
+
+		CAMERA.updateMatrixWorld();
+		renderer.render(SCENE, CAMERA);
+		
+		requestAnimationFrame(animate);
+	}
+}
+function intersect(x, y) {
+	x = (x / WIDTH) * 2 - 1;
+	y = - (y / HEIGHT) * 2 + 1;
+	var vector = new THREE.Vector3(x, y, 0.5);
+	PROJECTOR.unprojectVector(vector, CAMERA);
+	
+	var ray = new THREE.Ray(CAMERA.position, vector.subSelf(CAMERA.position).normalize());
+	return ray.intersectObjects(SCENE.children).shift();
+}
+
+function poke(e) {
+	e.preventDefault()
+	e.stopPropagation()
+	drift()
+	// find intersections
+	var intersected = intersect(e.originalEvent.pageX, e.originalEvent.pageY)
 	if (intersected) {
-		drift()
 		intersected.object.material.program = drawPoppedBubble;
 		BUBBLE = intersected.object.bubble.clone(true)
 		BUBBLE.appendTo(document.body)
 			.css({
-				position: "absolute",
-				left: e.clientX - BUBBLE.width() / 2,
-				top: e.clientY - BUBBLE.height() / 2
+				left: e.originalEvent.pageX - BUBBLE.width() / 2,
+				top: e.originalEvent.pageY - BUBBLE.height() / 2
 			})
 			.stop().animate({top: -BUBBLE.outerHeight(true)}, 20000, queue)
+		if (PARTICLES.filter(function(p) {return p.material.program != drawPoppedBubble}).length == 0) populate(PAGE = PAGE + 1)
 	}
-	else drift()
 }
-function drift() {
-	BUBBLE.not(".pop").unbind("click mouseenter").stop(true).animate({top: -BUBBLE.outerHeight(true)}, 1000, queue)
+function drift(e) {
+	if (e) e.stopPropagation()
+	BUBBLE.not(".pop").unbind(TAP).stop(true).animate({top: -BUBBLE.outerHeight(true)}, 1000, queue)
 	BUBBLE = $()
 }
 function queue() {
 	if (!$(this).is(".large")) {
 		//stack bubble on side panel
-		$("#bubbles").css({top: this.offsetTop + 20}).stop().animate({top: 10})
-		$(this).prependTo("#bubbles").css({position: "relative", top: 0, left: 0})
+		var scrollTop = $("body").scrollTop()
+		var isTop = scrollTop < $(this).outerHeight(true)
+		if (isTop) {
+			$("#bubbles").css({top: this.offsetTop + 20}).stop().animate({top: 10})
+			$(this).prependTo("#bubbles").css({position: "relative", top: 0, left: 0})
+		}
+		else {
+			$(this).prependTo("#bubbles").css({position: "relative", top: 0, left: 0})
+			$("body").scrollTop($(this).outerHeight(true) + scrollTop)
+		}
 	}
 	else $(this).remove()
 }
 
 var PARTICLES = []
-var boxSize = 400
-function unparam(string) {
-	var result = {}
-	string.slice(1).split("&").forEach(function(pair) {
-		var parts = pair.split("=")
-		result[parts[0]] = decodeURIComponent(parts[1]) || ""
-	})
-	return result
-}
-function populate() {
+var tweets = 30, videos = 30, images = 30, boxSize = 400
+var twitterBubble = new Image()
+twitterBubble.src = "images/bubbletwitter.png"
+var youtubeBubble = new Image()
+youtubeBubble.src = "images/bubbleyoutube.png"
+var flickrBubble = new Image()
+flickrBubble.src = "images/bubbleflickr.png"
+function populate(page) {
 	PARTICLES.forEach(function(particle) {
-		particle.material.state = "dead"
+		particle.fadeOut(function() {SCENE.remove(particle)})
 	})
 	PARTICLES = []
 
-	var params = unparam(location.search)
-
 	var query = $("[name=query]").val() || "sxsw",
-		tweets = parseInt(params.tweets) || 30,
-		videos = parseInt(params.videos) || 30,
-		images = parseInt(params.images) || 30,
-		twitter = "http://search.twitter.com/search.json?q=" + query + "&rpp=" + tweets + "&callback=?",
-		youtube = "https://gdata.youtube.com/feeds/api/videos?q=" + query + "&max-results=" + videos + "&alt=jsonc&v=2&callback=?",
+		twitter = "http://search.twitter.com/search.json?q=" + query + "&rpp=" + tweets + "&page=" + page + "&callback=?",
+		youtube = "https://gdata.youtube.com/feeds/api/videos?q=" + query + "&max-results=" + videos + "&start-index=" + (videos * (page - 1) + 1) + "&alt=jsonc&v=2&callback=?",
 		flickr = "http://api.flickr.com/services/rest/?method=flickr.photos.search&api_key=d34615bcc71b41e5ddaf5212cec71f77" +
-			"&format=json&jsoncallback=?&extras=description,tags,url_sq,url_m&per_page=" + images + "&text=" + query
+			"&format=json&jsoncallback=?&extras=description,tags,url_sq,url_m&per_page=" + images + "&page=" + page +"&text=" + query
 		
 	$.getJSON(twitter, function(tweets) {
 		addParticles(tweets.results, drawTwitterBubble, renderTweet)
@@ -111,7 +175,6 @@ function addParticles(data, draw, render) {
 			color: Math.random() * 0x666666,
 			program: genProgram(draw)
 		})
-		material.state = "live"
 		var particle = new THREE.Particle(material);
 		
 		particle.position.x = Math.random() * boxSize - (boxSize / 2);
@@ -119,19 +182,17 @@ function addParticles(data, draw, render) {
 		particle.position.z = Math.random() * boxSize - (boxSize / 2);
 		particle.scale.x = particle.scale.y = Math.random() * 10 + 10;
 		
+		particle.fadeOut = fadeOut
+		
 		render(item, particle)
-			
+				
 		SCENE.add(particle)
 		PARTICLES.push(particle)
 	})
 }
-
-var twitterBubble = new Image()
-twitterBubble.src = "images/bubbletwitter.png"
-var youtubeBubble = new Image()
-youtubeBubble.src = "images/bubbleyoutube.png"
-var flickrBubble = new Image()
-flickrBubble.src = "images/bubbleflickr.png"
+function fadeOut(fn) {
+	this.material.onFadeOut = fn
+}
 function swing(p) {
 	return (-Math.cos(p*Math.PI) / 2) + 0.5;
 }
@@ -140,15 +201,16 @@ function genProgram(draw) {
 	startDelay = endDelay = Math.round(Math.random() * 20) + 1
 	var i = 0
 	return function(context) {
-		if (this.state == "live") {
+		if (!this.onFadeOut) {
 			if (startDelay) startDelay--
 			else i = Math.min(1, i + 0.1)
 		}
 		else {
 			if (endDelay) endDelay--
 			else i = Math.max(0, i - 0.1)
+			if (i == 0) this.onFadeOut()
 		}
-		draw(context, swing(i))
+		draw.call(this, context, swing(i))
 	}
 }
 function drawTwitterBubble(context, step) {
@@ -165,12 +227,15 @@ function drawFlickrBubble(context, step) {
 	context.drawImage(flickrBubble, -1, -1, 2, 2);
 }
 function drawPoppedBubble(context) {
-	context.globalAlpha = 1
-	context.lineWidth = 0.01;
-	context.beginPath();
-	context.arc(0, 0, 1, 0, Math.PI * 2, true);
-	context.closePath();
-	context.stroke();
+	if (!this.onFadeOut) {
+		context.globalAlpha = 1
+		context.lineWidth = 0.01;
+		context.beginPath();
+		context.arc(0, 0, 1, 0, Math.PI * 2, true);
+		context.closePath();
+		context.stroke();
+	}
+	else this.onFadeOut()
 }
 
 function renderTweet(tweet, particle) {
@@ -185,7 +250,9 @@ function renderVideo(video, particle) {
 		.tpl("<a href='#'><img src='{{thumbnail}}' /></a><span class='rest'>{{title}} <a href='#'>Watch video</a></span>", video)
 		.bubble()
 		.find("a")
-			.click(false).click(function(e) {
+			.bind(TAP, function(e) {
+				e.preventDefault()
+				e.stopPropagation()
 				drift()
 				BUBBLE = $("<div class='large bubble'></div>")
 					.tpl("<iframe width='640' height='385' src='http://www.youtube.com/embed/{{id}}' frameborder='0'></iframe>", video)
@@ -201,7 +268,9 @@ function renderImage(image, particle) {
 		.tpl("<a href='#'><img src='{{url_sq}}' /></a><span class='rest'>{{description}} <a href='#'>See image</a></span>", image)
 		.bubble()
 		.find("a")
-			.click(false).click(function(e) {
+			.bind(TAP, function(e) {
+				e.preventDefault()
+				e.stopPropagation()
 				drift()
 				BUBBLE = $("<div class='large bubble'></div>")
 					.tpl("<img src='{{url_m}}' style='height:{{height_m}}px;width:{{width_m}}px' />", image)
@@ -210,47 +279,6 @@ function renderImage(image, particle) {
 					.center()
 			})
 			.end()
-}
-
-var CAMERA, SCENE, PROJECTOR;
-function initScene() {
-	CAMERA = new THREE.PerspectiveCamera(70, WIDTH / HEIGHT, 1, 10000);
-	CAMERA.position.set(0, 300, 500);
-
-	SCENE = new THREE.Scene();
-
-	SCENE.add(CAMERA);
-
-	PROJECTOR = new THREE.Projector();
-
-	var renderer = new THREE.CanvasRenderer();
-	renderer.setSize(WIDTH, HEIGHT);
-
-	document.body.appendChild(renderer.domElement);
-	
-	var radius = 400, theta = 0;
-	new function animate() {
-		// rotate CAMERA
-		theta += 0.6;
-
-		CAMERA.position.x = radius * Math.sin(theta * Math.PI / 360);
-		CAMERA.position.y = radius * Math.sin(theta * Math.PI / 360);
-		CAMERA.position.z = radius * Math.cos(theta * Math.PI / 360);
-		CAMERA.lookAt(SCENE.position);
-
-		CAMERA.updateMatrixWorld();
-		renderer.domElement.width = renderer.domElement.width
-		renderer.render(SCENE, CAMERA);
-		
-		requestAnimationFrame(animate);
-	}
-}
-function intersect(x, y) {
-	var vector = new THREE.Vector3(x, y, 0.5);
-	PROJECTOR.unprojectVector(vector, CAMERA);
-	
-	var ray = new THREE.Ray(CAMERA.position, vector.subSelf(CAMERA.position).normalize());
-	return ray.intersectObjects(SCENE.children).shift();
 }
 
 initSearchBubble()
